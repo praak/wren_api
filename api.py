@@ -1,33 +1,50 @@
 from flask import Flask
 from flask import jsonify
-from flask import json
 from flask import request
 from flask_pymongo import PyMongo
 from bson.json_util import dumps
+import pymongo
 from pymongo import MongoClient
+import json
 import datetime
 import string
+import requests
+# https://pypi.python.org/pypi/noaaweather/0.1.0
+from noaaweather import weather
 
 connection = MongoClient('localhost:27017')
 app = Flask(__name__)
 
 @app.route('/test/', methods=['GET'])
 def get_test():
+  h = int(request.args.get('hour'))
+  m = int(request.args.get('minute'))
+  s = int(request.args.get('second'))
   db = connection.wrendb.testcollection
-  return get(db), 200
+
+  sfWeather = weather.noaa()
+  sfWeather.getByZip('45236')
+  print sfWeather.precipitation.liquid.tomorrow.max.value
+  print sfWeather.temperature.apparent.tomorrow.min.value
+  print sfWeather.temperature.apparent.value
+
+  return get(db, h, m, s), 200
    
 @app.route('/', methods=['GET'])
 def get_data():
+  h = int(request.args.get('hour'))
+  m = int(request.args.get('minute'))
+  s = int(request.args.get('second'))
   db = connection.wrendb.sensorcollection
-  return get(db), 200
+  return get(db, h, m, s), 200
 
 ## Handle GET requests
-def get(db):
+def get(db, h, m, s):
   now = datetime.datetime.now()
-  past = now - datetime.timedelta(minutes=1)
+  past = now - datetime.timedelta(hours=h, minutes=m, seconds=s)
   spast = str(past.isoformat())
 
-  results = list(db.find({'published_at' : {'$gte' : spast}}, {'_id' : 0}))
+  results = list(db.find({'published_at' : {'$gte' : spast}}, {'_id' : 0}).sort('published_at', pymongo.DESCENDING))
   return jsonify(results)
 
 
